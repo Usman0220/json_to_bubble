@@ -4,6 +4,7 @@ import {
   useEffect,
   useImperativeHandle,
   useRef,
+  useState,
 } from "react";
 import ForceGraph3D from "3d-force-graph";
 import * as THREE from "three";
@@ -77,6 +78,7 @@ export const GraphCanvas = memo(
     { nodes, links, settings, selectedId, onSelect, onHover },
     ref
   ) {
+    const [mountError, setMountError] = useState<string | null>(null);
     const elRef = useRef<HTMLDivElement>(null);
     const fgRef = useRef<any>(null);
     const sphereGeo = useRef<THREE.SphereGeometry | null>(null);
@@ -132,9 +134,15 @@ export const GraphCanvas = memo(
     /* ------------------------------ mount ------------------------------ */
     useEffect(() => {
       const el = elRef.current!;
+      try {
       if (!sphereGeo.current) sphereGeo.current = new THREE.SphereGeometry(1, 30, 22);
 
       const fg: any = new (ForceGraph3D as any)(el, { controlType: "orbit" });
+      if (!fg || typeof fg.scene !== "function" || typeof fg.graphData !== "function") {
+        throw new Error(
+          "3d-force-graph returned an uninitialized engine instance (API mismatch with the installed version)."
+        );
+      }
       fgRef.current = fg;
       fg.backgroundColor("#060b14");
       fg.showNavInfo(false);
@@ -287,6 +295,18 @@ export const GraphCanvas = memo(
         el.innerHTML = "";
         fgRef.current = null;
       };
+      } catch (err) {
+        console.error("[bubblefield] 3D engine failed to start:", err);
+        cancelAnimationFrame(rafRef.current);
+        try {
+          (fgRef.current as any)?._destructor?.();
+        } catch {
+          /* noop */
+        }
+        el.innerHTML = "";
+        fgRef.current = null;
+        setMountError(err instanceof Error ? err.message : String(err));
+      }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -440,7 +460,31 @@ export const GraphCanvas = memo(
       resetView: () => animateCamera(new THREE.Vector3(0, 40, 340), new THREE.Vector3(0, 0, 0), 900),
     }));
 
-    return <div ref={elRef} className="absolute inset-0" />;
+    return (
+      <>
+        <div ref={elRef} className="absolute inset-0" />
+        {mountError && (
+          <div className="absolute inset-0 z-20 grid place-items-center bg-[#060b14]/85 p-6 backdrop-blur-sm">
+            <div className="bf-anim-slide w-full max-w-md rounded-xl border border-line-2 bg-panel p-5 shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
+              <div className="flex items-center gap-2.5">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-amber" />
+                <h3 className="font-display text-[13px] font-bold tracking-wide text-amber">
+                  3D engine failed to start
+                </h3>
+              </div>
+              <p className="mt-3 break-words rounded-lg border border-line bg-panel-2 p-3 font-mono text-[11px] leading-relaxed text-fog">
+                {mountError}
+              </p>
+              <p className="mt-3 text-[11.5px] leading-relaxed text-fog/70">
+                This usually means WebGL is unavailable or blocked. Enable hardware acceleration in
+                your browser, update GPU drivers, or try a different browser. The JSON console still
+                works — your data is safe.
+              </p>
+            </div>
+          </div>
+        )}
+      </>
+    );
   })
 );
 
