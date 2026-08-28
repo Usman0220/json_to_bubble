@@ -443,3 +443,5 @@ export const GraphCanvas = memo(
     return <div ref={elRef} className="absolute inset-0" />;
   })
 );
+
+export default GraphCanvas;

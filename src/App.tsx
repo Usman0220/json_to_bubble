@@ -1,11 +1,34 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { GraphCanvas, type GraphHandle, type GraphSettings } from "./components/GraphCanvas";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { GraphHandle, GraphSettings } from "./components/GraphCanvas";
 import { JsonDock } from "./components/JsonDock";
 import { DetailsPanel } from "./components/DetailsPanel";
 import { convertToGraph, parseJson, type ParseFailure, type ParsedGraph } from "./lib/parse";
 import { buildEnriched, type SimNode } from "./lib/graph";
 import { SAMPLES } from "./lib/samples";
 import { IconBolt, IconCrosshair, IconLayers, IconLink, IconNodes, IconOrbit, IconPanel, IconTag, IconX } from "./components/icons";
+
+const GraphCanvas = lazy(() => import("./components/GraphCanvas"));
+
+function EngineLoader() {
+  return (
+    <div className="absolute inset-0 z-0 grid place-items-center">
+      <div className="flex flex-col items-center gap-6">
+        <div className="relative h-20 w-20">
+          <div className="absolute inset-0 rounded-full border border-teal/15" />
+          <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-teal [animation-duration:1.1s]" />
+          <div className="absolute inset-2.5 animate-spin rounded-full border border-transparent border-b-amber/80 [animation-direction:reverse] [animation-duration:1.8s]" />
+          <div className="absolute inset-0 grid place-items-center">
+            <div className="h-2 w-2 animate-pulse rounded-full bg-teal shadow-[0_0_18px_rgba(94,234,212,0.9)]" />
+          </div>
+        </div>
+        <div className="text-center">
+          <p className="font-mono text-[10px] uppercase tracking-[0.32em] text-fog/80">booting render engine</p>
+          <p className="mt-1.5 font-mono text-[10px] tracking-[0.14em] text-fog/40">three.js · force graph</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface Model {
   parsed: ParsedGraph | null;
@@ -195,15 +218,17 @@ export default function App() {
           t.style.transform = `translate(${x}px, ${y}px)`;
         }}
       >
-        <GraphCanvas
-          ref={canvasRef}
-          nodes={enriched?.nodes ?? []}
-          links={enriched?.links ?? []}
-          settings={settings}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          onHover={setHoverNode}
-        />
+        <Suspense fallback={<EngineLoader />}>
+          <GraphCanvas
+            ref={canvasRef}
+            nodes={enriched?.nodes ?? []}
+            links={enriched?.links ?? []}
+            settings={settings}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            onHover={setHoverNode}
+          />
+        </Suspense>
 
         {/* ambient overlay */}
         <div className="pointer-events-none absolute inset-0 z-10 bg-[radial-gradient(1100px_640px_at_18%_-8%,rgba(94,234,212,0.07),transparent_60%),radial-gradient(900px_600px_at_105%_110%,rgba(251,191,36,0.06),transparent_55%),radial-gradient(closest-side,transparent_62%,rgba(3,6,12,0.55)_100%)]" />
